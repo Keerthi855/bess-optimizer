@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>BESS Optimizer</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:#0d0d0d; --panel:#141414; --border:#222; --border2:#2a2a2a;
+  --accent:#e8ff00; --green:#00ffaa; --red:#ff4444; --orange:#ff9500;
+  --muted:#555; --muted2:#888; --text:#e0e0e0;
+  --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif; --disp:'Bebas Neue',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
+
+/* HEADER */
+header{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--panel)}
+.logo{font-family:var(--disp);font-size:26px;letter-spacing:4px;color:var(--accent)}
+.sub{font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:1px;margin-top:1px}
+.badge{margin-left:auto;background:rgba(232,255,0,.07);border:1px solid rgba(232,255,0,.3);border-radius:3px;padding:3px 10px;font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:2px}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:290px 1fr;min-height:calc(100vh - 53px)}
+
+/* SIDEBAR */
+.sb{background:var(--panel);border-right:1px solid var(--border);padding:16px;overflow-y:auto;display:flex;flex-direction:column;gap:16px}
+.stitle{font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.field{margin-bottom:8px}
+.field label{display:block;font-size:10px;color:var(--muted);font-family:var(--mono);letter-spacing:.5px;margin-bottom:4px}
+.field input[type=number]{width:100%;background:#1a1a1a;border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 9px;outline:none;transition:border-color .15s}
+.field input[type=number]:focus{border-color:var(--accent)}
+.field input[type=range]{width:100%;accent-color:var(--accent);cursor:pointer;margin-top:3px}
+.rrow{display:flex;align-items:center;gap:6px}
+.rv{font-family:var(--mono);font-size:11px;color:var(--accent);min-width:46px;text-align:right}
+.upload{border:1px dashed var(--border);border-radius:4px;padding:14px;text-align:center;cursor:pointer;position:relative;transition:border-color .2s,background .2s}
+.upload:hover{border-color:var(--accent);background:rgba(232,255,0,.03)}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-icon{font-size:22px;margin-bottom:4px}
+.upload p{font-size:10px;color:var(--muted);line-height:1.5}
+.fname{font-family:var(--mono);font-size:9px;color:var(--accent);margin-top:5px;display:none}
+.hint{background:rgba(255,255,255,.02);border:1px solid var(--border);border-radius:3px;padding:8px;font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.8}
+.hint span{color:var(--green)}
+.hint .neg{color:var(--red)}
+.btn{width:100%;padding:12px;background:var(--accent);border:none;border-radius:3px;color:#000;font-family:var(--disp);font-size:17px;letter-spacing:3px;cursor:pointer;transition:opacity .2s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.spinner{display:none;width:14px;height:14px;border:2px solid #0004;border-top-color:#000;border-radius:50%;animation:spin .5s linear infinite;margin:0 auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* MAIN */
+main{padding:20px;overflow-y:auto}
+.empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center}
+.empty .ico{font-size:48px;opacity:.15}
+.empty h2{font-family:var(--disp);font-size:22px;letter-spacing:3px;color:#2a2a2a}
+.empty p{font-size:11px;max-width:260px;line-height:1.6}
+.err{background:rgba(255,68,68,.08);border:1px solid var(--red);border-radius:4px;padding:12px;font-family:var(--mono);font-size:10px;color:var(--red);white-space:pre-wrap;word-break:break-word;display:none}
+#results{display:none}
+
+/* KPI row */
+.krow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:12px}
+.kpi{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:12px 14px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--kc,var(--accent))}
+.kpi-lbl{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.kpi-val{font-family:var(--disp);font-size:24px;color:var(--kc,var(--accent));letter-spacing:1px;line-height:1}
+.kpi-unit{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px}
+
+/* Section grid */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.sgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:14px}
+.card.full{grid-column:1/-1}
+.ctitle{font-family:var(--mono);font-size:8px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+
+/* Econ rows */
+.erow{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #1a1a1a;font-size:11px}
+.erow:last-child{border:none}
+.erow .el{color:var(--muted);font-family:var(--mono);font-size:9px}
+.erow .ev{font-family:var(--mono);font-size:11px;font-weight:600}
+.erow.tot{padding-top:8px;border-top:1px solid var(--border)!important;border-bottom:none}
+.erow.tot .ev{color:var(--accent);font-size:13px}
+.pos{color:var(--green)!important}
+.neg2{color:var(--red)!important}
+
+/* Energy mix */
+.mbar{display:flex;height:24px;border-radius:3px;overflow:hidden;margin-bottom:8px}
+.mseg{display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:9px;color:#000;font-weight:600;transition:width .8s ease}
+.mleg{display:flex;gap:14px;flex-wrap:wrap}
+.mitem{display:flex;align-items:center;gap:5px;font-size:10px;font-family:var(--mono);color:var(--muted)}
+.mdot{width:7px;height:7px;border-radius:2px}
+
+/* Chart */
+.ch-wrap{height:190px;position:relative}
+.ch-wrap.tall{height:240px}
+.dpick{display:flex;align-items:center;gap:6px}
+.dpick input{background:#1a1a1a;border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--mono);font-size:10px;padding:3px 7px;width:60px;outline:none}
+.dpick label{font-size:9px;color:var(--muted)}
+.btn-dl{background:transparent;border:1px solid var(--border);border-radius:3px;color:var(--muted);font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:4px 10px;cursor:pointer;text-transform:uppercase;transition:all .15s}
+.btn-dl:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ── CALCULATION PANEL ── */
+.calc-panel{background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:16px;margin-bottom:10px}
+.calc-title{font-family:var(--disp);font-size:16px;letter-spacing:2px;color:var(--accent);margin-bottom:14px}
+.calc-section{margin-bottom:16px}
+.calc-section h4{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid var(--border)}
+.formula{background:#0d0d0d;border:1px solid var(--border2);border-radius:3px;padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text);line-height:2;margin-bottom:6px}
+.formula .sym{color:var(--accent)}
+.formula .val{color:var(--green)}
+.formula .comment{color:var(--muted);font-size:9px}
+.formula .neg-note{color:var(--red)}
+.step{display:flex;gap:10px;margin-bottom:6px;font-size:11px;align-items:baseline}
+.step-num{font-family:var(--mono);font-size:9px;color:var(--accent);min-width:20px}
+.step-txt{color:var(--muted2);line-height:1.5}
+.step-eq{font-family:var(--mono);font-size:10px;color:var(--text);background:#0d0d0d;border:1px solid var(--border2);border-radius:2px;padding:2px 6px;margin-left:6px;white-space:nowrap}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade{animation:fadeUp .3s ease both}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">BESS OPTIMIZER</div>
+    <div class="sub">Battery Energy Storage · Espot Market Pricing</div>
+  </div>
+  <div class="badge">GUROBI MILP</div>
+</header>
+
+<div class="layout">
+
+<!-- ═══ SIDEBAR ═══ -->
+<aside class="sb">
+<form id="frm" enctype="multipart/form-data">
+
+  <div>
+    <div class="stitle">Data Input</div>
+    <div class="upload" id="drop">
+      <input type="file" name="csv_file" id="csvF" accept=".csv" required/>
+      <div class="upload-icon">📁</div>
+      <p>Drop CSV or click to browse</p>
+      <div class="fname" id="fname"></div>
+    </div>
+    <div class="hint" style="margin-top:7px">
+      Required columns:<br/>
+      <span>load_demand</span> — kW hourly<br/>
+      <span>solar_yield</span> — kW hourly<br/>
+      <span>export_price</span> — €/kWh hourly<br/>
+      <span class="neg">(negative prices supported)</span>
+    </div>
+  </div>
+
+  <div>
+    <div class="stitle">Solar Installation</div>
+    <div class="field">
+      <label>Installed Solar Capacity (kWp)</label>
+      <input type="number" name="solar_kw" value="500" min="1" step="10"/>
+    </div>
+    <div class="hint">Solar capacity entered here is used for solar yield reference only — battery P is no longer capped to this value.</div>
+  </div>
+
+  <div>
+    <div class="stitle">Battery Economics</div>
+    <div class="field">
+      <label>Battery Cost (€/kWh upfront)</label>
+      <input type="number" name="battery_cost" value="300" min="50" step="10"/>
+    </div>
+    <div class="field">
+      <label>Lifetime (years)</label>
+      <input type="number" name="lifetime_yrs" value="10" min="1" max="30"/>
+    </div>
+    <div class="field">
+      <label>Discount Rate</label>
+      <div class="rrow">
+        <input type="range" name="discount_rate" min="0.02" max="0.15" step="0.01" value="0.08"
+          oninput="document.getElementById('dr').textContent=(+this.value*100).toFixed(0)+'%'"/>
+        <span class="rv" id="dr">8%</span>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="stitle">Electricity Price</div>
+    <div class="field">
+      <label>Import Tariff (€/kWh, fixed)</label>
+      <input type="number" name="import_price" value="0.25" min="0" step="0.01"/>
+    </div>
+    <div class="hint">Export price is read hourly from CSV (espot market, can be negative).</div>
+  </div>
+
+  <div>
+    <div class="stitle">Battery Technical</div>
+    <div class="field">
+      <label>Round-trip Efficiency</label>
+      <div class="rrow">
+        <input type="range" name="eta_charge" min="0.80" max="1.0" step="0.01" value="0.95"
+          oninput="document.getElementById('ec').textContent=(+this.value*100).toFixed(0)+'%'"/>
+        <span class="rv" id="ec">95%</span>
+      </div>
+    </div>
+    <div class="field" style="display:none">
+      <input type="range" name="eta_discharge" value="0.95"/>
+    </div>
+    <div class="field">
+      <label>Min SOC</label>
+      <div class="rrow">
+        <input type="range" name="soc_min_pct" min="0.0" max="0.3" step="0.01" value="0.10"
+          oninput="document.getElementById('sm').textContent=(+this.value*100).toFixed(0)+'%'"/>
+        <span class="rv" id="sm">10%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Max SOC</label>
+      <div class="rrow">
+        <input type="range" name="soc_max_pct" min="0.70" max="1.0" step="0.01" value="0.95"
+          oninput="document.getElementById('sx').textContent=(+this.value*100).toFixed(0)+'%'"/>
+        <span class="rv" id="sx">95%</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>C-Rate (Power ÷ Energy)</label>
+      <div class="rrow">
+        <input type="range" name="c_rate" min="0.25" max="2.0" step="0.05" value="0.5"
+          oninput="document.getElementById('cr').textContent=(+this.value).toFixed(2)+'C'"/>
+        <span class="rv" id="cr">0.50C</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Max Battery Size (kWh)</label>
+      <input type="number" name="e_max_kwh" value="10000" min="100" step="100"/>
+    </div>
+  </div>
+
+  <div>
+    <div class="stitle">Solver</div>
+    <div class="field">
+      <label>Time Limit (seconds)</label>
+      <input type="number" name="time_limit" value="300" min="30" step="30"/>
+    </div>
+  </div>
+
+  <button type="submit" class="btn" id="runBtn">
+    <span id="btnTxt">RUN OPTIMIZER</span>
+    <div class="spinner" id="spin"></div>
+  </button>
+
+</form>
+</aside>
+
+<!-- ═══ MAIN ═══ -->
+<main>
+  <div class="empty" id="empty">
+    <div class="ico">⚡</div>
+    <h2>READY TO OPTIMIZE</h2>
+    <p>Upload CSV with load, solar and hourly espot export prices, then run.</p>
+  </div>
+  <div class="err" id="err"></div>
+  <div id="results">
+
+    <!-- KPIs -->
+    <div class="krow fade" id="krow"></div>
+
+    <!-- Negative price alert -->
+    <div id="negAlert" class="fade" style="animation-delay:.03s;display:none;margin-bottom:10px;
+      background:rgba(255,68,68,.06);border:1px solid rgba(255,68,68,.3);border-radius:4px;
+      padding:10px 14px;font-family:var(--mono);font-size:10px;color:var(--red);line-height:1.7"></div>
+
+    <!-- Economics + Energy mix -->
+    <div class="sgrid3 fade" style="animation-delay:.06s">
+      <div class="card"><div class="ctitle"><span>Annual Cost Breakdown</span></div><div id="econBreak"></div></div>
+      <div class="card"><div class="ctitle"><span>vs. No Battery Baseline</span></div><div id="econSave"></div></div>
+      <div class="card"><div class="ctitle"><span>Annual Energy Flows</span></div><div id="econFlow"></div></div>
+    </div>
+
+    <!-- Mix bar -->
+    <div class="card fade" style="animation-delay:.09s;margin-bottom:10px">
+      <div class="ctitle"><span>Load Coverage Mix</span></div>
+      <div class="mbar" id="mbar"></div>
+      <div class="mleg" id="mleg"></div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="sgrid fade" style="animation-delay:.12s">
+      <div class="card">
+        <div class="ctitle">
+          <span>Daily Dispatch</span>
+          <div class="dpick"><label>Day</label>
+            <input type="number" id="dayPick" value="1" min="1" max="365" onchange="renderDay()"/></div>
+        </div>
+        <div class="ch-wrap"><canvas id="dayChart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="ctitle"><span>SOC — selected day</span></div>
+        <div class="ch-wrap"><canvas id="socChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card full fade" style="animation-delay:.15s;margin-bottom:10px">
+      <div class="ctitle">
+        <span>Annual Overview (daily totals)</span>
+        <button class="btn-dl" id="dlBtn">⬇ CSV</button>
+      </div>
+      <div class="ch-wrap tall"><canvas id="annChart"></canvas></div>
+    </div>
+
+    <!-- CALCULATION EXPLANATION -->
+    <div class="calc-panel fade" style="animation-delay:.18s">
+      <div class="calc-title">HOW THE CALCULATION WORKS</div>
+
+      <div class="sgrid" style="margin-bottom:0">
+        <div>
+          <div class="calc-section">
+            <h4>Step 1 — Annualize Battery Cost</h4>
+            <div class="formula">
+              <span class="sym">CRF</span> = r·(1+r)ⁿ / ((1+r)ⁿ−1)<br/>
+              <span class="comment">// Capital Recovery Factor converts upfront cost → annual</span><br/>
+              <span class="sym">CAPEX_annual</span> = <span class="sym">battery_cost</span> × <span class="sym">CRF</span> × <span class="sym">E_kWh</span>
+              <span id="calcCRF"></span>
+            </div>
+            <div class="step"><span class="step-num">→</span><span class="step-txt">A 10-year, 8% discount rate gives CRF ≈ 0.149 — meaning you "pay" 14.9% of the capital cost each year.</span></div>
+          </div>
+
+          <div class="calc-section">
+            <h4>Step 2 — Objective Function (what Gurobi minimizes)</h4>
+            <div class="formula">
+              <span class="sym">minimize:</span><br/>
+              &nbsp;&nbsp;<span class="sym">CAPEX_ann</span> (€/yr)<br/>
+              &nbsp;+ <span class="sym">Σ import_price × imp[t]</span> (€/yr)<br/>
+              &nbsp;− <span class="sym">Σ export_price[t] × exp[t]</span> (€/yr)<br/>
+              <span class="comment">// When export_price[t] &lt; 0:</span><br/>
+              <span class="neg-note">// −(negative × exp) = +cost → optimizer avoids exporting!</span>
+            </div>
+          </div>
+
+          <div class="calc-section">
+            <h4>Step 3 — Power Balance (every hour)</h4>
+            <div class="formula">
+              <span class="sym">solar[t]</span> + <span class="sym">discharge[t]</span> + <span class="sym">import[t]</span><br/>
+              &nbsp;= <span class="sym">load[t]</span> + <span class="sym">ch_solar[t]</span> + <span class="sym">ch_grid[t]</span> + <span class="sym">export[t]</span>
+            </div>
+            <div class="step"><span class="step-num">→</span><span class="step-txt">Every kWh must be accounted for. No free energy, no lost energy.</span></div>
+          </div>
+        </div>
+
+        <div>
+          <div class="calc-section">
+            <h4>Step 4 — Negative Price Logic</h4>
+            <div class="formula">
+              When <span class="neg-note">export_price[t] &lt; 0</span>:<br/>
+              &nbsp;&nbsp;Exporting costs money (penalized in objective)<br/>
+              &nbsp;&nbsp;→ optimizer sets exp[t] ≈ 0<br/>
+              &nbsp;&nbsp;→ surplus solar goes to <span class="sym">load</span> first<br/>
+              &nbsp;&nbsp;→ then to <span class="sym">battery</span> (ch_solar[t])<br/>
+              &nbsp;&nbsp;→ only unavoidable surplus goes to grid<br/>
+              <span class="comment">// No hard constraint needed — economics drive this</span>
+            </div>
+          </div>
+
+          <div class="calc-section">
+            <h4>Step 5 — Battery Power Cap</h4>
+            <div class="formula">
+              <span class="sym">P_cap</span> ≤ <span class="sym">c_rate × E_cap</span><br/>
+              <span class="comment">// No solar inverter cap — Gurobi finds optimal P freely</span><br/>
+              <span class="comment">// Only constraint: P ≤ c_rate × E  (e.g. 0.5C → 2-hour battery)</span>
+            </div>
+            <div id="calcPcap"></div>
+          </div>
+
+          <div class="calc-section">
+            <h4>Step 6 — SOC Dynamics</h4>
+            <div class="formula">
+              <span class="sym">SOC[t]</span> = <span class="sym">SOC[t−1]</span><br/>
+              &nbsp;&nbsp;+ (ch_sol[t−1] + ch_grd[t−1]) × η_charge<br/>
+              &nbsp;&nbsp;− discharge[t−1] / η_discharge<br/>
+              <br/>
+              <span class="sym">E × soc_min</span> ≤ <span class="sym">SOC[t]</span> ≤ <span class="sym">E × soc_max</span>
+            </div>
+            <div class="step"><span class="step-num">→</span><span class="step-txt">Losses are modelled in both directions. Cycling within min/max SOC protects battery life.</span></div>
+          </div>
+
+          <div class="calc-section">
+            <h4>Step 7 — Optimal Size Output</h4>
+            <div class="formula">
+              Gurobi finds <span class="sym">E_kWh</span> and <span class="sym">P_kW</span> that minimize<br/>
+              total annual cost over all 8760 hours.<br/>
+              <span class="comment">// Smaller battery → lower CAPEX but higher grid cost</span><br/>
+              <span class="comment">// Larger battery → higher CAPEX but lower grid cost</span><br/>
+              <span class="sym">Optimal point</span> = where ΔCAPEX = ΔGrid savings
+            </div>
+            <div id="calcResult"></div>
+          </div>
+        </div>
+      </div>
+    </div><!-- end calc panel -->
+
+  </div><!-- end results -->
+</main>
+</div>
+
+<script>
+let G = null, charts = {};
+
+// File upload label
+document.getElementById('csvF').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) { const el = document.getElementById('fname'); el.textContent='✓ '+f.name; el.style.display='block'; }
+});
+
+// Form submit
+document.getElementById('frm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn=document.getElementById('runBtn'), txt=document.getElementById('btnTxt'), sp=document.getElementById('spin');
+  btn.disabled=true; txt.style.display='none'; sp.style.display='block';
+  document.getElementById('err').style.display='none';
+  document.getElementById('results').style.display='none';
+  document.getElementById('empty').style.display='none';
+  try {
+    const r = await fetch('/optimize',{method:'POST',body:new FormData(e.target)});
+    const d = await r.json();
+    if (d.error) showErr(d.error);
+    else { G=d; render(d); }
+  } catch(ex) { showErr('Network error: '+ex.message); }
+  finally { btn.disabled=false; txt.style.display='block'; sp.style.display='none'; }
+});
+
+function showErr(msg){const b=document.getElementById('err');b.textContent='⚠ '+msg;b.style.display='block';}
+
+function render(d) {
+  document.getElementById('results').style.display='block';
+  document.getElementById('empty').style.display='none';
+  renderKPIs(d); renderEcon(d); renderMix(d);
+  renderDay(); renderAnnual(d.hourly);
+  renderCalc(d);
+  document.getElementById('dayPick').max = Math.floor(d.N_HOURS/24);
+  // Negative price alert
+  const na = document.getElementById('negAlert');
+  if (d.neg_price_hours > 0) {
+    na.style.display='block';
+    na.innerHTML = `⚡ Negative espot price hours detected: <b>${d.neg_price_hours}</b> hours/year.<br/>
+During those hours the optimizer avoids exporting — solar goes to load → battery → grid only if unavoidable.<br/>
+Solar curtailed to grid during negative prices: <b>${d.neg_price_curtailed} kWh</b> (forced surplus only).`;
+  } else { na.style.display='none'; }
+}
+
+function renderKPIs(d) {
+  const sv = d.annual_savings;
+  const cards = [
+    {l:'Optimal Battery', v:d.E_kwh.toLocaleString(), u:'kWh capacity', c:'#e8ff00'},
+    {l:'Power Capacity',  v:d.P_kw.toLocaleString(),  u:`kW (optimal, c-rate bounded)`, c:'#00ffaa'},
+    {l:'Annual Savings',  v:'€'+Math.abs(sv).toLocaleString(undefined,{maximumFractionDigits:0}), u:sv>0?'saved vs baseline':'extra cost vs baseline', c:sv>0?'#00ffaa':'#ff4444'},
+    {l:'Self-Sufficiency',v:d.self_suff+'%', u:'% of load without grid', c:'#e8ff00'},
+    {l:'Net Annual Cost', v:'€'+Math.abs(d.ann_net_cost).toLocaleString(undefined,{maximumFractionDigits:0}), u:'CAPEX+import−export', c:'#ff9500'},
+  ];
+  document.getElementById('krow').innerHTML = cards.map(c=>`
+    <div class="kpi" style="--kc:${c.c}">
+      <div class="kpi-lbl">${c.l}</div>
+      <div class="kpi-val">${c.v}</div>
+      <div class="kpi-unit">${c.u}</div>
+    </div>`).join('');
+}
+
+function renderEcon(d) {
+  document.getElementById('econBreak').innerHTML = `
+    <div class="erow"><span class="el">Battery CAPEX (ann.)</span><span class="ev neg2">−€${fmt(d.ann_capex)}</span></div>
+    <div class="erow"><span class="el">Grid Import Cost</span><span class="ev neg2">−€${fmt(d.ann_import_cost)}</span></div>
+    <div class="erow"><span class="el">Export Revenue</span><span class="ev ${d.ann_export_rev>=0?'pos':'neg2'}">${d.ann_export_rev>=0?'+':''}€${fmt(d.ann_export_rev)}</span></div>
+    <div class="erow tot"><span class="el">Net Annual Cost</span><span class="ev">€${fmt(d.ann_net_cost)}</span></div>`;
+
+  const sv=d.annual_savings;
+  document.getElementById('econSave').innerHTML = `
+    <div class="erow"><span class="el">Baseline (no battery)</span><span class="ev">€${fmt(d.base_cost)}</span></div>
+    <div class="erow"><span class="el">With battery</span><span class="ev">€${fmt(d.ann_net_cost)}</span></div>
+    <div class="erow tot"><span class="el">Annual Savings</span><span class="ev ${sv>0?'pos':'neg2'}">${sv>0?'+':''}€${fmt(sv)}</span></div>`;
+
+  document.getElementById('econFlow').innerHTML = `
+    <div class="erow"><span class="el">Total Load</span><span class="ev">${fmtk(d.total_load)} kWh</span></div>
+    <div class="erow"><span class="el">Solar Generated</span><span class="ev">${fmtk(d.total_solar)} kWh</span></div>
+    <div class="erow"><span class="el">Grid Import</span><span class="ev neg2">${fmtk(d.total_imp)} kWh</span></div>
+    <div class="erow"><span class="el">Solar Export</span><span class="ev pos">${fmtk(d.total_exp)} kWh</span></div>
+    <div class="erow"><span class="el">Batt Discharge</span><span class="ev">${fmtk(d.total_dis)} kWh</span></div>
+    <div class="erow"><span class="el">Ch. from Solar</span><span class="ev">${fmtk(d.total_ch_sol)} kWh</span></div>
+    <div class="erow"><span class="el">Ch. from Grid</span><span class="ev">${fmtk(d.total_ch_grd)} kWh</span></div>`;
+}
+
+function renderMix(d) {
+  const segs=[
+    {l:'Direct Solar', p:d.solar_pct,   c:'#e8ff00'},
+    {l:'Battery',      p:d.battery_pct, c:'#00ffaa'},
+    {l:'Grid Import',  p:d.grid_pct,    c:'#ff4444'},
+  ];
+  document.getElementById('mbar').innerHTML = segs.map(s=>
+    `<div class="mseg" style="width:${s.p}%;background:${s.c}">${s.p>7?s.p+'%':''}</div>`).join('');
+  document.getElementById('mleg').innerHTML = segs.map(s=>
+    `<div class="mitem"><div class="mdot" style="background:${s.c}"></div>${s.l} — ${s.p}%</div>`).join('');
+}
+
+function renderDay() {
+  if (!G) return;
+  const day = parseInt(document.getElementById('dayPick').value)||1;
+  const sl  = G.hourly.slice((day-1)*24, day*24);
+  const lbs = sl.map((_,i)=>String(i).padStart(2,'0')+':00');
+  destroyChart('dayChart'); destroyChart('socChart');
+
+  charts['dayChart'] = new Chart(document.getElementById('dayChart'),{
+    type:'bar',
+    data:{labels:lbs,datasets:[
+      {label:'Load',         data:sl.map(h=>h.load),         backgroundColor:'rgba(255,255,255,0.1)', stack:'s'},
+      {label:'Solar→Load',   data:sl.map(h=>Math.min(h.solar,h.load)), backgroundColor:'rgba(232,255,0,0.75)', stack:'supply'},
+      {label:'Battery Dis',  data:sl.map(h=>h.discharge),    backgroundColor:'rgba(0,255,170,0.75)', stack:'supply'},
+      {label:'Grid Import',  data:sl.map(h=>h.grid_import),  backgroundColor:'rgba(255,68,68,0.6)',  stack:'supply'},
+      {label:'Ch←Solar',     data:sl.map(h=>-h.ch_solar),    backgroundColor:'rgba(232,255,0,0.3)',  stack:'use'},
+      {label:'Ch←Grid',      data:sl.map(h=>-h.ch_grid),     backgroundColor:'rgba(255,149,0,0.4)', stack:'use'},
+      {label:'Export',       data:sl.map(h=>-h.solar_export),backgroundColor:'rgba(100,180,255,0.4)',stack:'use'},
+    ]},
+    options:copts('kW')
+  });
+
+  // Colour export bars red when price was negative
+  const epColors = sl.map(h => h.export_price < 0 ? 'rgba(255,68,68,0.6)' : 'rgba(100,180,255,0.4)');
+  charts['dayChart'].data.datasets[6].backgroundColor = epColors;
+  charts['dayChart'].update();
+
+  charts['socChart'] = new Chart(document.getElementById('socChart'),{
+    type:'line',
+    data:{labels:lbs,datasets:[
+      {label:'SOC (kWh)', data:sl.map(h=>h.soc), borderColor:'#e8ff00',
+       backgroundColor:'rgba(232,255,0,0.07)', fill:true, borderWidth:2, pointRadius:2, tension:0.3},
+      {label:'Export Price (€/kWh)', data:sl.map(h=>h.export_price),
+       borderColor:'rgba(100,180,255,0.7)', backgroundColor:'transparent',
+       borderWidth:1.5, pointRadius:0, tension:0.3, yAxisID:'y2'},
+    ]},
+    options:{...copts('kWh'), scales:{
+      x:{ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9},maxTicksLimit:12},grid:{color:'rgba(255,255,255,0.03)'}},
+      y:{ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9}},grid:{color:'rgba(255,255,255,0.03)'}},
+      y2:{position:'right',ticks:{color:'rgba(100,180,255,0.7)',font:{family:'IBM Plex Mono',size:9}},
+          grid:{display:false}}
+    }}
+  });
+}
+
+function renderAnnual(hourly) {
+  const days=[];
+  for(let d=0;d<Math.floor(hourly.length/24);d++){
+    const sl=hourly.slice(d*24,d*24+24);
+    days.push({
+      sol: sl.reduce((s,h)=>s+h.solar,0).toFixed(0),
+      imp: sl.reduce((s,h)=>s+h.grid_import,0).toFixed(0),
+      dis: sl.reduce((s,h)=>s+h.discharge,0).toFixed(0),
+      exp: sl.reduce((s,h)=>s+h.solar_export,0).toFixed(0),
+      avgp: (sl.reduce((s,h)=>s+h.export_price,0)/24).toFixed(3),
+    });
+  }
+  destroyChart('annChart');
+  charts['annChart']=new Chart(document.getElementById('annChart'),{
+    type:'line',
+    data:{labels:days.map((_,i)=>`D${i+1}`),datasets:[
+      {label:'Solar (kWh/d)',   data:days.map(d=>d.sol),  borderColor:'#e8ff00',backgroundColor:'rgba(232,255,0,.05)',fill:true, borderWidth:1.5,pointRadius:0,tension:0.3},
+      {label:'Battery (kWh/d)',data:days.map(d=>d.dis),  borderColor:'#00ffaa',backgroundColor:'rgba(0,255,170,.04)',fill:true, borderWidth:1.5,pointRadius:0,tension:0.3},
+      {label:'Import (kWh/d)', data:days.map(d=>d.imp),  borderColor:'#ff4444',backgroundColor:'rgba(255,68,68,.04)', fill:true, borderWidth:1.5,pointRadius:0,tension:0.3},
+      {label:'Export (kWh/d)', data:days.map(d=>d.exp),  borderColor:'rgba(100,180,255,.8)',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:0.3},
+      {label:'Avg Export €',   data:days.map(d=>d.avgp), borderColor:'rgba(255,149,0,.6)',backgroundColor:'transparent',borderWidth:1,pointRadius:0,tension:0.3,yAxisID:'y2'},
+    ]},
+    options:{...copts('kWh/day'),scales:{
+      x:{ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9},maxTicksLimit:24},grid:{color:'rgba(255,255,255,0.02)'}},
+      y:{ticks:{color:'#444',font:{family:'IBM Plex Mono',size:9}},grid:{color:'rgba(255,255,255,0.02)'}},
+      y2:{position:'right',ticks:{color:'rgba(255,149,0,.6)',font:{family:'IBM Plex Mono',size:9}},grid:{display:false}}
+    }}
+  });
+}
+
+function renderCalc(d) {
+  // CRF display
+  document.getElementById('calcCRF').innerHTML = `<br/><span class="val">= ${d.ann_e_cost.toFixed(2)} €/kWh/yr &nbsp;(CRF = ${d.crf.toFixed(4)})</span>`;
+  // P cap display
+  document.getElementById('calcPcap').innerHTML = `<div class="step"><span class="step-num">→</span>
+    <span class="step-txt">Gurobi selected optimal power: <b>${d.P_kw} kW</b>
+    (free optimisation — bounded only by c-rate × E = ${d.P_kw} kW)</span></div>`;
+  // Result
+  const sv=d.annual_savings;
+  document.getElementById('calcResult').innerHTML = `<div class="step"><span class="step-num">→</span>
+    <span class="step-txt">Optimal: <b>${d.E_kwh} kWh</b> / <b>${d.P_kw} kW</b><br/>
+    Annual savings: <b style="color:${sv>0?'var(--green)':'var(--red)'}">€${fmt(Math.abs(sv))}</b> ${sv>0?'✓ battery pays off':'✗ battery does not pay off at current prices'}</span></div>`;
+}
+
+function copts(yLabel){
+  return {responsive:true,maintainAspectRatio:false,
+    interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:'#555',font:{family:'IBM Plex Mono',size:8},boxWidth:7,padding:8}},
+      tooltip:{backgroundColor:'#1a1a1a',borderColor:'#222',borderWidth:1,
+        titleFont:{family:'IBM Plex Mono',size:9},bodyFont:{family:'IBM Plex Mono',size:9},
+        titleColor:'#e0e0e0',bodyColor:'#888'}},
+    scales:{
+      x:{stacked:false,ticks:{color:'#444',font:{family:'IBM Plex Mono',size:8},maxTicksLimit:12},grid:{color:'rgba(255,255,255,0.03)'}},
+      y:{stacked:false,ticks:{color:'#444',font:{family:'IBM Plex Mono',size:8}},grid:{color:'rgba(255,255,255,0.03)'}}
+    }};
+}
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+function fmt(n){return Math.abs(n)>=1000?(n/1000).toFixed(1)+'k':Math.round(n).toString();}
+function fmtk(n){return n>=1000?(n/1000).toFixed(1)+'M':Math.round(n).toLocaleString();}
+
+document.getElementById('dlBtn')?.addEventListener('click',async()=>{
+  if(!G)return;
+  const r=await fetch('/download',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({hourly:G.hourly})});
+  const url=URL.createObjectURL(await r.blob());
+  Object.assign(document.createElement('a'),{href:url,download:'bess_results.csv'}).click();
+  URL.revokeObjectURL(url);
+});
+
+window.addEventListener('load',()=>
+  document.querySelectorAll('input[type=range]').forEach(s=>s.dispatchEvent(new Event('input'))));
+</script>
+</body>
+</html>

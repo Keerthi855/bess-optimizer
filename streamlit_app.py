@@ -341,7 +341,7 @@ def chart_price_heatmap(df_h):
                                 zmid=0, colorbar=dict(title='EUR/kWh'),
                                 x=list(range(pivot.shape[1])),
                                 y=list(range(24))))
-    fig.update_layout(**CHART_LAYOUT, title='Export Price Heatmap (Hour of Day Ã— Day of Year)',
+    fig.update_layout(**CHART_LAYOUT, title='Export Price Heatmap (Hour of Day x Day of Year)',
                       xaxis_title='Day of Year', yaxis_title='Hour of Day',
                       yaxis=dict(autorange='reversed'))
     return fig

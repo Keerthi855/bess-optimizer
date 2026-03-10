@@ -1,5 +1,5 @@
-"""
-BESS Optimizer — Streamlit UI
+﻿"""
+BESS Optimizer â€” Streamlit UI
 Green Battery MILP (Solar-only charging)
 """
 
@@ -19,7 +19,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
+# â”€â”€ Custom CSS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 st.markdown("""
 <style>
     .main { background-color: #0f1117; }
@@ -89,7 +89,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ── Helper functions ──────────────────────────────────────────────────────────
+# â”€â”€ Helper functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def capital_recovery_factor(r, n):
     if r == 0:
         return 1.0 / n
@@ -240,7 +240,7 @@ def run_optimizer(df, battery_cost, lifetime_yrs, discount_rate, import_price,
     }
 
 
-# ── CHARTS ────────────────────────────────────────────────────────────────────
+# â”€â”€ CHARTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 COLORS = {
     'solar'    : '#f59e0b',
     'battery'  : '#00d4aa',
@@ -277,7 +277,7 @@ def chart_dispatch(df_h, day_start, n_days=7):
     fig.add_trace(go.Scatter(x=x, y=d['grid_import'],  name='Grid Import',  line=dict(color=COLORS['grid'],    width=1.5), fill='tozeroy', fillcolor='rgba(74,144,217,0.15)'))
     fig.add_trace(go.Scatter(x=x, y=d['solar_export'], name='Solar Export', line=dict(color=COLORS['export'],  width=1.5)))
     fig.update_layout(**CHART_LAYOUT, title='Hourly Dispatch', barmode='overlay',
-                      xaxis_title=f'Hours (day {day_start+1} → {day_start+n_days})', yaxis_title='kW')
+                      xaxis_title=f'Hours (day {day_start+1} â†’ {day_start+n_days})', yaxis_title='kW')
     return fig
 
 def chart_soc(df_h, day_start, n_days=7):
@@ -289,12 +289,12 @@ def chart_soc(df_h, day_start, n_days=7):
     fig.add_trace(go.Scatter(x=x, y=d['soc'], name='SOC (kWh)', fill='tozeroy',
                              line=dict(color=COLORS['soc'], width=2),
                              fillcolor='rgba(52,211,153,0.2)'))
-    fig.add_trace(go.Scatter(x=x, y=d['export_price'] * 1000, name='Export Price (×1000 €/kWh)',
+    fig.add_trace(go.Scatter(x=x, y=d['export_price'] * 1000, name='Export Price (Ã—1000 EUR/kWh)',
                              line=dict(color=COLORS['price'], width=1.5, dash='dot'),
                              yaxis='y2'))
     fig.update_layout(**CHART_LAYOUT, title='State of Charge + Export Price',
                       yaxis=dict(title='SOC (kWh)', gridcolor='#2d3748'),
-                      yaxis2=dict(title='Export Price (€/MWh)', overlaying='y', side='right',
+                      yaxis2=dict(title='Export Price (EUR/MWh)', overlaying='y', side='right',
                                   gridcolor='#2d3748', showgrid=False))
     return fig
 
@@ -317,9 +317,9 @@ def chart_economics(res):
               res['ann_net_cost'], res['base_cost']]
     colors = ['#4a90d9','#f59e0b','#00d4aa','#e2e8f0','#f87171']
     fig = go.Figure(go.Bar(x=cats, y=values, marker_color=colors,
-                           text=[f"€{v:,.0f}" for v in values],
+                           text=[f"EUR{v:,.0f}" for v in values],
                            textposition='outside', textfont=dict(color='#e2e8f0')))
-    fig.update_layout(**CHART_LAYOUT, title='Annual Economics (€/year)', yaxis_title='€/year',
+    fig.update_layout(**CHART_LAYOUT, title='Annual Economics (EUR/year)', yaxis_title='EUR/year',
                       showlegend=False)
     return fig
 
@@ -344,37 +344,37 @@ def chart_price_heatmap(df_h):
     df_h['hour_of_day'] = df_h['hour'] % 24
     pivot = df_h.pivot_table(index='hour_of_day', columns='day', values='export_price', aggfunc='mean')
     fig = go.Figure(go.Heatmap(z=pivot.values, colorscale='RdYlGn',
-                                zmid=0, colorbar=dict(title='€/kWh'),
+                                zmid=0, colorbar=dict(title='EUR/kWh'),
                                 x=list(range(pivot.shape[1])),
                                 y=list(range(24))))
-    fig.update_layout(**CHART_LAYOUT, title='Export Price Heatmap (Hour of Day × Day of Year)',
+    fig.update_layout(**CHART_LAYOUT, title='Export Price Heatmap (Hour of Day Ã— Day of Year)',
                       xaxis_title='Day of Year', yaxis_title='Hour of Day',
                       yaxis=dict(autorange='reversed'))
     return fig
 
 
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # MAIN APP
-# ══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
-# ── Header ────────────────────────────────────────────────────────────────────
+# â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 col_t1, col_t2 = st.columns([3, 1])
 with col_t1:
     st.markdown("# BESS Optimizer")
-    st.markdown("**Battery Energy Storage System** — Green MILP Sizing Tool")
+    st.markdown("**Battery Energy Storage System** â€” Green MILP Sizing Tool")
 with col_t2:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<span class="green-badge">GREEN BATTERY | GUROBI MILP</span>', unsafe_allow_html=True)
 
 st.divider()
 
-# ── Sidebar — Parameters ──────────────────────────────────────────────────────
+# â”€â”€ Sidebar â€” Parameters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 with st.sidebar:
-    st.markdown("## ⚙️ Parameters")
+    st.markdown("## âš™ï¸ Parameters")
 
     st.markdown("### Data Upload")
     uploaded = st.file_uploader("Upload CSV (8760 rows)", type=['csv'],
-                                 help="Columns: load_demand (kW), solar_yield (kW), export_price (€/kWh)")
+                                 help="Columns: load_demand (kW), solar_yield (kW), export_price (EUR/kWh)")
     st.caption("Need sample data? Download below.")
 
     # Sample CSV download
@@ -390,7 +390,7 @@ with st.sidebar:
     solar_kw = st.number_input("Solar Installed (kWp)", 50, 50000, 500, 50)
 
     st.markdown("### Battery")
-    battery_cost  = st.number_input("Battery Cost (€/kWh)", 50, 1000, 300, 10)
+    battery_cost  = st.number_input("Battery Cost (EUR/kWh)", 50, 1000, 300, 10)
     e_max_kwh     = st.number_input("Max Battery Size (kWh)", 100, 100000, 10000, 100)
     c_rate        = st.slider("C-Rate", 0.1, 1.0, 0.5, 0.05,
                                help="Power-to-energy ratio. 0.5 = 2-hour battery")
@@ -400,7 +400,7 @@ with st.sidebar:
     soc_max_pct   = st.slider("Max SOC (%)", 70, 100, 95, 1) / 100
 
     st.markdown("### Financial")
-    import_price  = st.number_input("Import Tariff (€/kWh)", 0.05, 1.0, 0.25, 0.01,
+    import_price  = st.number_input("Import Tariff (EUR/kWh)", 0.05, 1.0, 0.25, 0.01,
                                      help="All-in electricity price including network charges and taxes")
     lifetime_yrs  = st.number_input("Battery Lifetime (years)", 5, 30, 10, 1)
     discount_rate = st.slider("Discount Rate (%)", 1, 20, 8, 1) / 100
@@ -412,7 +412,7 @@ with st.sidebar:
     run_btn = st.button("Run Optimization", type="primary", use_container_width=True)
 
 
-# ── Main area ─────────────────────────────────────────────────────────────────
+# â”€â”€ Main area â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 if uploaded is None:
     # Landing state
     st.markdown("""
@@ -435,14 +435,14 @@ if uploaded is None:
 
     col1, col2, col3 = st.columns(3)
     with col1:
-        st.info("**load_demand** — Site consumption in kW (hourly average)")
+        st.info("**load_demand** â€” Site consumption in kW (hourly average)")
     with col2:
-        st.info("**solar_yield** — Solar PV output in kW")
+        st.info("**solar_yield** â€” Solar PV output in kW")
     with col3:
-        st.info("**export_price** — Espot price in €/kWh (can be negative)")
+        st.info("**export_price** â€” Espot price in EUR/kWh (can be negative)")
 
 else:
-    # ── Load and preview data ─────────────────────────────────────────────────
+    # â”€â”€ Load and preview data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     try:
         df_input = pd.read_csv(uploaded)
         required = ['load_demand', 'solar_yield', 'export_price']
@@ -467,7 +467,7 @@ else:
         st.error(f"Error reading CSV: {e}")
         st.stop()
 
-    # ── Run optimizer ─────────────────────────────────────────────────────────
+    # â”€â”€ Run optimizer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if run_btn:
         with st.spinner("Running Gurobi MILP optimization... (this may take 1-5 minutes)"):
             try:
@@ -477,19 +477,19 @@ else:
                     c_rate, e_max_kwh, time_limit
                 )
                 st.session_state['result'] = res
-                st.success(f"Optimization complete — Status: {res['status']}")
+                st.success(f"Optimization complete â€” Status: {res['status']}")
             except Exception as e:
                 st.error(f"Optimization failed: {e}")
                 with st.expander("Traceback"):
                     st.code(traceback.format_exc())
                 st.stop()
 
-    # ── Show results ──────────────────────────────────────────────────────────
+    # â”€â”€ Show results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if 'result' in st.session_state:
         res  = st.session_state['result']
         df_h = pd.DataFrame(res['hourly'])
 
-        # ── KPI Row 1 — Sizing ────────────────────────────────────────────────
+        # â”€â”€ KPI Row 1 â€” Sizing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         st.markdown('<div class="section-header">Optimal Battery Sizing</div>', unsafe_allow_html=True)
         k1, k2, k3, k4, k5 = st.columns(5)
         k1.metric("Energy Capacity", f"{res['E_kwh']:,.0f} kWh",
@@ -498,22 +498,22 @@ else:
                   help="Optimal battery power size")
         k3.metric("Install Decision", "Installed" if res['y_installed'] else "Not Installed",
                   help="Binary install-or-not result")
-        k4.metric("C-Rate (actual)", f"{res['P_kw']/res['E_kwh']:.2f}C" if res['E_kwh'] > 0 else "—")
-        k5.metric("Duration", f"{res['E_kwh']/res['P_kw']:.1f} hrs" if res['P_kw'] > 0 else "—",
+        k4.metric("C-Rate (actual)", f"{res['P_kw']/res['E_kwh']:.2f}C" if res['E_kwh'] > 0 else "â€”")
+        k5.metric("Duration", f"{res['E_kwh']/res['P_kw']:.1f} hrs" if res['P_kw'] > 0 else "â€”",
                   help="Energy / Power = storage duration")
 
-        # ── KPI Row 2 — Economics ─────────────────────────────────────────────
+        # â”€â”€ KPI Row 2 â€” Economics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         st.markdown('<div class="section-header">Annual Economics</div>', unsafe_allow_html=True)
         k1, k2, k3, k4, k5 = st.columns(5)
-        k1.metric("CAPEX (annualized)", f"€{res['ann_capex']:,.0f}")
-        k2.metric("Import Cost",        f"€{res['ann_import_cost']:,.0f}")
-        k3.metric("Export Revenue",     f"€{res['ann_export_rev']:,.0f}")
-        k4.metric("Net Annual Cost",    f"€{res['ann_net_cost']:,.0f}")
-        savings_delta = f"vs €{res['base_cost']:,.0f} baseline"
-        k5.metric("Annual Savings",     f"€{res['annual_savings']:,.0f}", savings_delta,
+        k1.metric("CAPEX (annualized)", f"EUR{res['ann_capex']:,.0f}")
+        k2.metric("Import Cost",        f"EUR{res['ann_import_cost']:,.0f}")
+        k3.metric("Export Revenue",     f"EUR{res['ann_export_rev']:,.0f}")
+        k4.metric("Net Annual Cost",    f"EUR{res['ann_net_cost']:,.0f}")
+        savings_delta = f"vs EUR{res['base_cost']:,.0f} baseline"
+        k5.metric("Annual Savings",     f"EUR{res['annual_savings']:,.0f}", savings_delta,
                   delta_color="normal")
 
-        # ── KPI Row 3 — Energy ────────────────────────────────────────────────
+        # â”€â”€ KPI Row 3 â€” Energy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         st.markdown('<div class="section-header"> Annual Energy Flows</div>', unsafe_allow_html=True)
         k1, k2, k3, k4, k5 = st.columns(5)
         k1.metric("Self-Sufficiency",  f"{res['self_suff']}%")
@@ -524,7 +524,7 @@ else:
 
         st.divider()
 
-        # ── CHARTS ────────────────────────────────────────────────────────────
+        # â”€â”€ CHARTS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "Dispatch", "SOC & Price", "Monthly", "Economics", "Price Heatmap"
         ])
@@ -564,7 +564,7 @@ else:
 
         st.divider()
 
-        # ── Validation checks ─────────────────────────────────────────────────
+        # â”€â”€ Validation checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         st.markdown('<div class="section-header">Validation Checks</div>', unsafe_allow_html=True)
         df_h['balance_error'] = (df_h['solar'] + df_h['discharge'] + df_h['grid_import']
                                  - df_h['load'] - df_h['ch_solar'] - df_h['solar_export'])
@@ -587,7 +587,7 @@ else:
                    delta="Normal" if 50 < ann_cycles < 1000 else "Check",
                    delta_color="off")
 
-        # ── Download ──────────────────────────────────────────────────────────
+        # â”€â”€ Download â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         st.divider()
         st.markdown('<div class="section-header">Export Results</div>', unsafe_allow_html=True)
         csv_buf = io.StringIO()
@@ -603,9 +603,9 @@ else:
         # Summary table
         with st.expander("Full Results Summary"):
             summary = {
-                'Parameter': ['E_kwh', 'P_kw', 'CRF', 'Ann. CAPEX (€)', 'Ann. Import Cost (€)',
-                               'Ann. Export Revenue (€)', 'Ann. Net Cost (€)', 'Baseline Cost (€)',
-                               'Annual Savings (€)', 'Self-Sufficiency (%)', 'Annual Cycles',
+                'Parameter': ['E_kwh', 'P_kw', 'CRF', 'Ann. CAPEX (EUR)', 'Ann. Import Cost (EUR)',
+                               'Ann. Export Revenue (EUR)', 'Ann. Net Cost (EUR)', 'Baseline Cost (EUR)',
+                               'Annual Savings (EUR)', 'Self-Sufficiency (%)', 'Annual Cycles',
                                'Neg. Price Hours', 'Neg. Price Curtailed (kWh)'],
                 'Value': [res['E_kwh'], res['P_kw'], res['crf'], res['ann_capex'],
                           res['ann_import_cost'], res['ann_export_rev'], res['ann_net_cost'],
@@ -613,3 +613,4 @@ else:
                           f"{ann_cycles:.0f}", res['neg_price_hours'], res['neg_price_curtailed']]
             }
             st.dataframe(pd.DataFrame(summary), use_container_width=True)
+

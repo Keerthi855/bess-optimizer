@@ -165,9 +165,9 @@ def run_optimizer(df, battery_cost, lifetime_yrs, discount_rate, import_price,
     m.c_y_emax = pyo.Constraint(expr=m.E <= e_max_kwh * m.y)
     m.c_y_emin = pyo.Constraint(expr=m.E >= 100.0 * m.y)
 
-    solver = pyo.SolverFactory('gurobi')
-    solver.options['TimeLimit'] = time_limit
-    solver.options['MIPGap']    = 0.01
+    solver = pyo.SolverFactory('appsi_highs')
+    solver.options['time_limit'] = time_limit
+    solver.options['mip_rel_gap'] = 0.01
     result = solver.solve(m, tee=False)
 
     tc = result.solver.termination_condition

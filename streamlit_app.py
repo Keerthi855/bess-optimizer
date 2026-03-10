@@ -285,17 +285,11 @@ def chart_soc(df_h, day_start, n_days=7):
     h1 = min(h0 + n_days * 24, len(df_h))
     d  = df_h.iloc[h0:h1]
     x  = list(range(len(d)))
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=x, y=d['soc'], name='SOC (kWh)', fill='tozeroy',
-                             line=dict(color=COLORS['soc'], width=2),
-                             fillcolor='rgba(52,211,153,0.2)'))
-    fig.add_trace(go.Scatter(x=x, y=d['export_price'] * 1000, name='Export Price (Ã—1000 EUR/kWh)',
-                             line=dict(color=COLORS['price'], width=1.5, dash='dot'),
-                             yaxis='y2'))
-    fig.update_layout(**CHART_LAYOUT, title='State of Charge + Export Price',
-                      yaxis=dict(title='SOC (kWh)', gridcolor='#2d3748'),
-                      # fixed: 'Export Price (EUR/MWh)', overlaying='y', side='right',
-                                  gridcolor='#2d3748', showgrid=False))
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.65, 0.35], vertical_spacing=0.08)
+    fig.add_trace(go.Scatter(x=x, y=d['soc'], name='SOC (kWh)', fill='tozeroy', line=dict(color='#34d399', width=2), fillcolor='rgba(52,211,153,0.2)'), row=1, col=1)
+    fig.add_trace(go.Scatter(x=x, y=d['export_price']*1000, name='Export Price (EUR/MWh)', line=dict(color='#f87171', width=1.5), fill='tozeroy', fillcolor='rgba(248,113,113,0.15)'), row=2, col=1)
+    fig.update_layout(**CHART_LAYOUT, title='State of Charge + Export Price', height=500)
+    fig.update_yaxes(gridcolor='#2d3748')
     return fig
 
 def chart_annual_energy(res):

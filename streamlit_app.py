@@ -294,7 +294,7 @@ def chart_soc(df_h, day_start, n_days=7):
                              yaxis='y2'))
     fig.update_layout(**CHART_LAYOUT, title='State of Charge + Export Price',
                       yaxis=dict(title='SOC (kWh)', gridcolor='#2d3748'),
-                      yaxis2=dict(title='Export Price (EUR/MWh)', overlaying='y', side='right',
+                      # fixed: 'Export Price (EUR/MWh)', overlaying='y', side='right',
                                   gridcolor='#2d3748', showgrid=False))
     return fig
 

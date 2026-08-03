@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BESS Optimizer</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a; --panel: #1e293b; --panel-2: #16213a; --border: #2d3b53;
+    --text: #e2e8f0; --muted: #94a3b8;
+    --accent: #22c55e; --accent-2: #38bdf8; --warn: #f59e0b; --danger: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:"Segoe UI",Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); padding:24px; }
+  h1 { font-size:22px; margin:0 0 4px 0; }
+  .subtitle { color:var(--muted); margin-bottom:24px; font-size:14px; }
+  .layout { display:grid; grid-template-columns:340px 1fr; gap:20px; align-items:start; }
+  @media (max-width:900px) { .layout { grid-template-columns:1fr; } }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:18px; }
+  .card h2 { font-size:14px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 14px 0; }
+  label { display:block; font-size:12px; color:var(--muted); margin:10px 0 4px; }
+  input[type=number], input[type=file] { width:100%; background:var(--panel-2); border:1px solid var(--border); color:var(--text); padding:7px 8px; border-radius:6px; font-size:13px; }
+  input[type=file] { padding:6px; font-size:12px; }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  button { width:100%; margin-top:16px; padding:10px; border:none; border-radius:6px; background:var(--accent); color:#06210f; font-weight:600; font-size:14px; cursor:pointer; }
+  button:disabled { background:var(--muted); cursor:not-allowed; }
+  button.secondary { background:var(--accent-2); color:#06202b; }
+  button.pdf { background:#a78bfa; color:#1e1030; }
+  button.word { background:#2b579a; color:#ffffff; }
+  .status { font-size:12px; margin-top:10px; color:var(--muted); min-height:16px; }
+  .status.error { color:var(--danger); }
+
+  #printArea { background: var(--bg); }
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:18px; }
+  .kpi { background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:12px; }
+  .kpi .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; }
+  .kpi .value { font-size:20px; font-weight:700; margin-top:4px; }
+  .kpi .value.good { color:var(--accent); }
+  .kpi .value.bad { color:var(--danger); }
+
+  .verdict-banner { border-radius:10px; padding:16px 20px; margin-bottom:18px; border:1px solid; }
+  .verdict-banner.positive { background:rgba(34,197,94,0.12); border-color:var(--accent); }
+  .verdict-banner.negative { background:rgba(239,68,68,0.12); border-color:var(--danger); }
+  .verdict-title { font-size:16px; font-weight:800; margin-bottom:6px; }
+  .verdict-title.positive { color:var(--accent); }
+  .verdict-title.negative { color:var(--danger); }
+  .verdict-reasons { font-size:12.5px; color:var(--text); line-height:1.6; margin:0; padding-left:18px; }
+
+  .chart-box { background:var(--panel-2); border:1px solid var(--border); border-radius:8px; padding:14px; margin-bottom:16px; }
+  .chart-box h3 { font-size:13px; color:var(--muted); margin:0 0 4px 0; font-weight:600; }
+  .chart-box .explain { font-size:11.5px; color:#a8b3c4; margin:0 0 10px 0; line-height:1.5; }
+  canvas { max-height:300px; }
+
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:900px) { .grid2 { grid-template-columns:1fr; } }
+
+  .week-controls { display:flex; gap:8px; align-items:center; margin-bottom:10px; }
+  .week-controls label { margin:0; }
+  .week-controls select { background:var(--panel); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:6px; font-size:12px; }
+
+  table.validation { width:100%; border-collapse:collapse; font-size:12px; }
+  table.validation th, table.validation td { padding:7px 8px; border-bottom:1px solid var(--border); text-align:left; }
+  table.validation th { color:var(--muted); text-transform:uppercase; font-size:10.5px; letter-spacing:.03em; }
+  .pass { color:var(--accent); font-weight:700; }
+  .fail { color:var(--danger); font-weight:700; }
+
+  .placeholder { color:var(--muted); font-size:13px; padding:40px; text-align:center; border:1px dashed var(--border); border-radius:10px; }
+  .download-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-top:6px; }
+  @media (max-width:700px) { .download-row { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+
+<h1>BESS Optimizer</h1>
+<div class="subtitle">Battery sizing &amp; hourly dispatch — solar + grid + espot export pricing</div>
+
+<div class="layout">
+
+  <div class="card">
+    <h2>Inputs</h2>
+    <form id="optForm">
+      <label>Hourly CSV (load_demand, solar_yield, export_price)</label>
+      <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+
+      <div class="row2">
+        <div><label>Battery cost (€/kWh)</label><input type="number" name="battery_cost" value="300" step="any"></div>
+        <div><label>Lifetime (years)</label><input type="number" name="lifetime_yrs" value="10" step="any"></div>
+      </div>
+      <div class="row2">
+        <div><label>Discount rate (fraction)</label><input type="number" name="discount_rate" value="0.08" step="any"></div>
+        <div><label>Import price (€/kWh)</label><input type="number" name="import_price" value="0.25" step="any"></div>
+      </div>
+      <div class="row2">
+        <div><label>Solar installed (kWp)</label><input type="number" name="solar_kw" value="500" step="any"></div>
+        <div><label>Max battery size (kWh)</label><input type="number" name="e_max_kwh" value="10000" step="any"></div>
+      </div>
+      <div class="row2">
+        <div><label>Charge efficiency</label><input type="number" name="eta_charge" value="0.95" step="any"></div>
+        <div><label>Discharge efficiency</label><input type="number" name="eta_discharge" value="0.95" step="any"></div>
+      </div>
+      <div class="row2">
+        <div><label>SOC min (%)</label><input type="number" name="soc_min_pct" value="0.10" step="any"></div>
+        <div><label>SOC max (%)</label><input type="number" name="soc_max_pct" value="0.95" step="any"></div>
+      </div>
+      <div class="row2">
+        <div><label>C-rate</label><input type="number" name="c_rate" value="0.5" step="any"></div>
+        <div><label>Solver time limit (s)</label><input type="number" name="time_limit" value="300" step="1"></div>
+      </div>
+
+      <button type="submit" id="runBtn">Run optimization</button>
+      <div class="status" id="statusMsg"></div>
+    </form>
+  </div>
+
+  <div id="results">
+    <div class="placeholder">Upload a CSV and run the optimizer to see sizing, economics, verdict, and dispatch results here.</div>
+  </div>
+
+</div>
+
+<script>
+let lastData = null;
+let lastParams = null;
+
+document.getElementById('optForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const statusEl = document.getElementById('statusMsg');
+  const btn = document.getElementById('runBtn');
+  const resultsEl = document.getElementById('results');
+
+  statusEl.textContent = ''; statusEl.classList.remove('error');
+  btn.disabled = true; btn.textContent = 'Solving...';
+  resultsEl.innerHTML = '<div class="placeholder">Running solver — this can take a while for 8760 hours...</div>';
+
+  try {
+    const fd = new FormData(e.target);
+    // capture numeric params for client-side validation math (not all are echoed back by /optimize)
+    lastParams = {};
+    for (const [k, v] of fd.entries()) { if (k !== 'csv_file') lastParams[k] = parseFloat(v); }
+
+    const resp = await fetch('/optimize', { method: 'POST', body: fd });
+    const data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || ('HTTP ' + resp.status));
+
+    lastData = data;
+    renderResults(data, lastParams);
+    statusEl.textContent = 'Status: ' + data.status;
+  } catch (err) {
+    statusEl.textContent = 'Error: ' + err.message;
+    statusEl.classList.add('error');
+    resultsEl.innerHTML = '<div class="placeholder">Run failed. See error above.</div>';
+  } finally {
+    btn.disabled = false; btn.textContent = 'Run optimization';
+  }
+});
+
+function fmt(n, digits=0) {
+  if (n === undefined || n === null || isNaN(n)) return '–';
+  return Number(n).toLocaleString(undefined, {maximumFractionDigits: digits, minimumFractionDigits: digits});
+}
+
+// ── Client-side validation & verdict, computed from the returned hourly array ──
+function computeValidation(d, p) {
+  const h = d.hourly;
+  const N = h.length;
+
+  let maxBalErr = 0;
+  for (const r of h) {
+    const err = (r.solar + r.discharge + r.grid_import) - (r.load + r.ch_solar + r.ch_grid + r.solar_export);
+    if (Math.abs(err) > maxBalErr) maxBalErr = Math.abs(err);
+  }
+
+  const socInit = p.e_max_kwh * 0.5;
+  let soc = socInit, maxSocErr = 0;
+  for (const r of h) {
+    const err = Math.abs(r.soc - soc);
+    if (err > maxSocErr) maxSocErr = err;
+    soc = soc + (r.ch_solar + r.ch_grid) * p.eta_charge - r.discharge / p.eta_discharge;
+  }
+
+  let simulCD = 0, simulIE = 0, maxNegExport = 0, negCount = 0;
+  let socMin = Infinity, socMax = -Infinity;
+  for (const r of h) {
+    if ((r.ch_solar + r.ch_grid) > 0.1 && r.discharge > 0.1) simulCD++;
+    if (r.grid_import > 0.1 && r.solar_export > 0.1) simulIE++;
+    if (r.export_price < 0) { negCount++; if (r.solar_export > maxNegExport) maxNegExport = r.solar_export; }
+    if (r.soc < socMin) socMin = r.soc;
+    if (r.soc > socMax) socMax = r.soc;
+  }
+
+  const cycles = d.total_dis / d.E_kwh;
+  const costPerKwh = d.ann_capex / d.total_dis;
+  const socFloorTheoretical = (p.e_max_kwh * 0.5) / p.soc_max_pct;
+  const sizeIsArtifact = Math.abs(d.E_kwh - socFloorTheoretical) < Math.max(1, 0.005 * socFloorTheoretical);
+
+  let payback = null;
+  if (d.annual_savings > 0) payback = (p.battery_cost * d.E_kwh) / d.annual_savings;
+
+  return { maxBalErr, maxSocErr, simulCD, simulIE, maxNegExport, negCount, cycles, costPerKwh, socMin, socMax, sizeIsArtifact, socFloorTheoretical, payback, N };
+}
+
+function renderResults(d, p) {
+  const v = computeValidation(d, p);
+  const savingsGood = d.annual_savings >= 0;
+  let html = '<div id="printArea">';
+
+  // ── KPI grid ──
+  html += '<div class="kpi-grid">';
+  html += kpi('Optimal battery', fmt(d.E_kwh,1) + ' kWh');
+  html += kpi('Power capacity', fmt(d.P_kw,1) + ' kW');
+  if (d.y_installed !== undefined) html += kpi('Install decision', d.y_installed === 1 ? 'Install' : 'No battery');
+  html += kpi('Annual savings', '€' + fmt(d.annual_savings), savingsGood ? 'good' : 'bad');
+  html += kpi('Net annual cost', '€' + fmt(d.ann_net_cost));
+  html += kpi('Baseline cost', '€' + fmt(d.base_cost));
+  html += kpi('Self-sufficiency', fmt(d.self_suff,1) + ' %');
+  html += kpi('Cycles / year', fmt(v.cycles,1));
+  html += kpi('Cost / kWh stored', '€' + fmt(v.costPerKwh,2));
+  html += kpi('CRF', fmt(d.crf,4));
+  html += kpi('Neg-price hours', fmt(d.neg_price_hours));
+  html += kpi('Payback', v.payback ? fmt(v.payback,1) + ' yr' : 'N/A');
+  html += '</div>';
+
+  // ── Verdict banner ──
+  const verdictPositive = d.annual_savings >= 0 && v.payback !== null && v.payback <= 15;
+  html += verdictBanner(d, v, verdictPositive);
+
+  // ── Charts ──
+  html += '<div class="chart-box"><h3>Annual cost breakdown</h3><p class="explain">Compares the no-battery baseline against CAPEX, import cost, export revenue and net cost. If the CAPEX bar alone exceeds the baseline bar, the battery cannot pay for itself regardless of dispatch quality.</p><canvas id="costChart"></canvas></div>';
+
+  html += '<div class="grid2">';
+  html += '<div class="chart-box"><h3>Load coverage mix</h3><p class="explain">Share of annual load met by solar, battery discharge, and grid import.</p><canvas id="mixChart"></canvas></div>';
+  html += '<div class="chart-box"><h3>Full-year state of charge</h3><p class="explain">Daily min/mean/max SOC across the whole year, with the model\'s fixed floor and ceiling shown as reference lines.</p><canvas id="socYearChart"></canvas></div>';
+  html += '</div>';
+
+  html += '<div class="chart-box">';
+  html += '<div class="week-controls"><label>Week starting hour:</label><select id="weekSelect">' + weekOptions(d.N_HOURS) + '</select></div>';
+  html += '<h3>Hourly dispatch (168h window)</h3><p class="explain">Load, solar, grid import, battery discharge and export for the selected week, with SOC and export price beneath.</p><canvas id="dispatchChart"></canvas></div>';
+  html += '<div class="chart-box"><canvas id="socChart"></canvas></div>';
+
+  html += '<div class="chart-box"><h3>Dispatch around a negative export-price window</h3><p class="explain">Zooms into a period with negative espot prices. Export should drop toward zero as the optimizer redirects solar surplus into the battery instead of paying to export it.</p><canvas id="negPriceChart"></canvas></div>';
+
+  // ── Validation table ──
+  html += '<div class="chart-box"><h3>Validation checks</h3><p class="explain">Computed live from this run\'s hourly results, following the same checks used in the project\'s validation guide.</p>';
+  html += validationTableHtml(d, v);
+  html += '</div>';
+
+  html += '</div>'; // end printArea
+
+  html += '<div class="download-row">';
+  html += '<button class="secondary" id="downloadBtn">Download hourly data (CSV)</button>';
+  html += '<button class="pdf" id="pdfBtn">Download full report (PDF)</button>';
+  html += '<button class="word" id="wordBtn">Download full report (Word)</button>';
+  html += '</div>';
+
+  document.getElementById('results').innerHTML = html;
+
+  drawCostChart(d);
+  drawMixChart(d);
+  drawSocYearChart(d);
+  drawWeek(d, 0);
+  drawNegPriceZoom(d);
+
+  document.getElementById('weekSelect').addEventListener('change', (e) => drawWeek(d, parseInt(e.target.value)));
+  document.getElementById('downloadBtn').addEventListener('click', () => downloadCsv(d));
+  document.getElementById('pdfBtn').addEventListener('click', () => downloadPdf(d));
+  document.getElementById('wordBtn').addEventListener('click', () => downloadWordReport(d));
+}
+
+function kpi(label, value, cls) {
+  return '<div class="kpi"><div class="label">' + label + '</div><div class="value ' + (cls||'') + '">' + value + '</div></div>';
+}
+
+function verdictBanner(d, v, positive) {
+  const cls = positive ? 'positive' : 'negative';
+  const title = positive ? 'POSITIVE INVESTMENT' : 'NEGATIVE INVESTMENT';
+  let reasons = [];
+  reasons.push((d.annual_savings >= 0 ? 'Annual savings are positive: ' : 'Annual savings are negative: ') + '€' + fmt(d.annual_savings) + '/yr.');
+  reasons.push(v.payback !== null ? ('Simple payback: ' + fmt(v.payback,1) + ' years (healthy range: 5–15 yrs).') : 'No payback exists — the battery never earns back its cost.');
+  reasons.push('Cost per kWh stored: €' + fmt(v.costPerKwh,2) + '/kWh (plausible range: €0.08–0.25/kWh).');
+  reasons.push('Cycles per year: ' + fmt(v.cycles,1) + ' (healthy range: 150–700 for a grid+solar battery).');
+  if (v.sizeIsArtifact) {
+    reasons.push('Note: the reported battery size is at (or very near) the model\'s implicit SOC-initialization floor (' + fmt(v.socFloorTheoretical,0) + ' kWh) rather than a freely chosen economic optimum — treat E* as a lower bound imposed by the linearization, not proof the size is economically justified.');
+  }
+  return '<div class="verdict-banner ' + cls + '"><div class="verdict-title ' + cls + '">' + title + '</div><ul class="verdict-reasons">' +
+    reasons.map(r => '<li>' + r + '</li>').join('') + '</ul></div>';
+}
+
+function validationTableHtml(d, v) {
+  const rows = [
+    ['Power balance (all hours)', 'max err ' + v.maxBalErr.toFixed(4) + ' kW', v.maxBalErr < 0.01],
+    ['SOC reconstruction', 'max err ' + v.maxSocErr.toFixed(3) + ' kWh', v.maxSocErr < 0.5],
+    ['No simultaneous charge+discharge', v.simulCD + ' violations', v.simulCD === 0],
+    ['No simultaneous import+export', v.simulIE + ' violations', v.simulIE === 0],
+    ['Cycles/year in plausible range (50–1000)', fmt(v.cycles,1) + ' cycles/yr', v.cycles >= 50 && v.cycles <= 1000],
+    ['Export ≈ 0 during negative prices', 'max ' + fmt(v.maxNegExport,1) + ' kW exported (' + v.negCount + ' neg-price hrs)', v.maxNegExport < 5],
+    ['Cost per kWh stored in €0.08–0.25 range', '€' + fmt(v.costPerKwh,2) + '/kWh', v.costPerKwh >= 0.08 && v.costPerKwh <= 0.25],
+  ];
+  let out = '<table class="validation"><tr><th>Check</th><th>Observed</th><th>Result</th></tr>';
+  for (const [c, o, pass] of rows) {
+    out += '<tr><td>' + c + '</td><td>' + o + '</td><td class="' + (pass ? 'pass">PASS' : 'fail">FAIL') + '</td></tr>';
+  }
+  out += '</table>';
+  return out;
+}
+
+function weekOptions(nHours) {
+  let opts = '';
+  for (let h = 0; h < nHours; h += 168) opts += '<option value="' + h + '">Hour ' + h + ' – ' + Math.min(h+167, nHours-1) + '</option>';
+  return opts;
+}
+
+let costChartRef, mixChartRef, socYearChartRef, dispatchChartRef, socChartRef, negPriceChartRef;
+const axisColor = '#94a3b8';
+
+function drawCostChart(d) {
+  const ctx = document.getElementById('costChart');
+  if (costChartRef) costChartRef.destroy();
+  costChartRef = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Baseline','CAPEX','Import cost','Export revenue','Net cost'],
+      datasets: [{ data: [d.base_cost, d.ann_capex, d.ann_import_cost, -d.ann_export_rev, d.ann_net_cost],
+        backgroundColor: ['#94a3b8','#f59e0b','#ef4444','#22c55e','#111827'] }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}},
+      scales:{ y:{ticks:{color:axisColor}}, x:{ticks:{color:axisColor}} } }
+  });
+}
+
+function drawMixChart(d) {
+  const ctx = document.getElementById('mixChart');
+  if (mixChartRef) mixChartRef.destroy();
+  mixChartRef = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: ['Solar','Battery','Grid'], datasets: [{ data: [d.solar_pct, d.battery_pct, d.grid_pct], backgroundColor: ['#f59e0b','#16a34a','#3b82f6'] }] },
+    options: { responsive:true, plugins:{legend:{labels:{color:axisColor}}} }
+  });
+}
+
+function drawSocYearChart(d) {
+  const daily = {};
+  for (const r of d.hourly) {
+    const day = Math.floor(r.hour/24);
+    if (!daily[day]) daily[day] = { min: Infinity, max: -Infinity, sum: 0, n: 0 };
+    daily[day].min = Math.min(daily[day].min, r.soc);
+    daily[day].max = Math.max(daily[day].max, r.soc);
+    daily[day].sum += r.soc; daily[day].n++;
+  }
+  const days = Object.keys(daily).map(Number).sort((a,b)=>a-b);
+  const meanArr = days.map(day => daily[day].sum / daily[day].n);
+  const minArr = days.map(day => daily[day].min);
+  const maxArr = days.map(day => daily[day].max);
+
+  const ctx = document.getElementById('socYearChart');
+  if (socYearChartRef) socYearChartRef.destroy();
+  socYearChartRef = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: days,
+      datasets: [
+        { label:'Daily max', data:maxArr, borderColor:'rgba(124,58,237,0.25)', backgroundColor:'rgba(124,58,237,0.12)', pointRadius:0, borderWidth:1, fill:'+1' },
+        { label:'Daily min', data:minArr, borderColor:'rgba(124,58,237,0.25)', pointRadius:0, borderWidth:1, fill:false },
+        { label:'Daily mean SOC', data:meanArr, borderColor:'#7c3aed', pointRadius:0, borderWidth:1.6, fill:false },
+      ]
+    },
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:axisColor, font:{size:10}}}},
+      scales:{ y:{title:{display:true,text:'kWh',color:axisColor},ticks:{color:axisColor}}, x:{ticks:{color:axisColor,maxTicksLimit:10}} } }
+  });
+}
+
+function drawWeek(d, startHour) {
+  const hourly = d.hourly.slice(startHour, startHour + 168);
+  const labels = hourly.map(h => h.hour);
+
+  const ctx = document.getElementById('dispatchChart');
+  if (dispatchChartRef) dispatchChartRef.destroy();
+  dispatchChartRef = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Load', data:hourly.map(h=>h.load), borderColor:'#e2e8f0', borderWidth:1.5, pointRadius:0 },
+      { label:'Solar', data:hourly.map(h=>h.solar), borderColor:'#f59e0b', borderWidth:1.5, pointRadius:0 },
+      { label:'Grid import', data:hourly.map(h=>h.grid_import), borderColor:'#38bdf8', borderWidth:1.5, pointRadius:0 },
+      { label:'Discharge', data:hourly.map(h=>h.discharge), borderColor:'#22c55e', borderWidth:1.5, pointRadius:0 },
+      { label:'Export', data:hourly.map(h=>h.solar_export), borderColor:'#ef4444', borderWidth:1.5, pointRadius:0 },
+    ]},
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:axisColor}}},
+      scales:{ y:{title:{display:true,text:'kW',color:axisColor},ticks:{color:axisColor}}, x:{ticks:{color:axisColor,maxTicksLimit:12}} } }
+  });
+
+  const ctx2 = document.getElementById('socChart');
+  if (socChartRef) socChartRef.destroy();
+  socChartRef = new Chart(ctx2, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'SOC (kWh)', data:hourly.map(h=>h.soc), borderColor:'#a78bfa', backgroundColor:'rgba(167,139,250,0.15)', fill:true, borderWidth:1.5, pointRadius:0, yAxisID:'y' },
+      { label:'Export price (€/kWh)', data:hourly.map(h=>h.export_price), borderColor:'#0891b2', borderDash:[4,3], borderWidth:1.2, pointRadius:0, yAxisID:'y1' },
+    ]},
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:axisColor}}},
+      scales:{
+        y:{ position:'left', title:{display:true,text:'kWh',color:'#a78bfa'}, ticks:{color:'#a78bfa'} },
+        y1:{ position:'right', title:{display:true,text:'€/kWh',color:'#0891b2'}, ticks:{color:'#0891b2'}, grid:{drawOnChartArea:false} },
+        x:{ ticks:{color:axisColor,maxTicksLimit:12} }
+      } }
+  });
+}
+
+function drawNegPriceZoom(d) {
+  const negIdx = d.hourly.filter(h => h.export_price < 0).map(h => h.hour);
+  let start = 0;
+  if (negIdx.length > 0) start = Math.max(0, negIdx[Math.floor(negIdx.length/2)] - 24);
+  const w = d.hourly.slice(start, start + 72);
+  const labels = w.map(h => h.hour);
+
+  const ctx = document.getElementById('negPriceChart');
+  if (negPriceChartRef) negPriceChartRef.destroy();
+  negPriceChartRef = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [
+      { label:'Solar export', data:w.map(h=>h.solar_export), borderColor:'#ef4444', borderWidth:1.6, pointRadius:0, yAxisID:'y' },
+      { label:'Battery charge (solar)', data:w.map(h=>h.ch_solar), borderColor:'#22c55e', borderWidth:1.6, pointRadius:0, yAxisID:'y' },
+      { label:'Export price', data:w.map(h=>h.export_price), borderColor:'#0891b2', borderDash:[4,3], borderWidth:1.2, pointRadius:0, yAxisID:'y1' },
+    ]},
+    options: { responsive:true, interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:axisColor}}},
+      scales:{
+        y:{ position:'left', title:{display:true,text:'kW',color:axisColor}, ticks:{color:axisColor} },
+        y1:{ position:'right', title:{display:true,text:'€/kWh',color:'#0891b2'}, ticks:{color:'#0891b2'}, grid:{drawOnChartArea:false} },
+        x:{ ticks:{color:axisColor,maxTicksLimit:12} }
+      } }
+  });
+}
+
+async function downloadCsv(d) {
+  const resp = await fetch('/download', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ hourly: d.hourly }) });
+  const blob = await resp.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'bess_results.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function downloadWordReport(d) {
+  const btn = document.getElementById('wordBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Building report...';
+  try {
+    const resp = await fetch('/report', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(d) });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || ('HTTP ' + resp.status));
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'bess_report.docx'; a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Word report generation failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+
+async function downloadPdf(d) {
+  const btn = document.getElementById('pdfBtn');
+  btn.disabled = true; const orig = btn.textContent; btn.textContent = 'Building PDF...';
+  try {
+    const area = document.getElementById('printArea');
+    const canvas = await html2canvas(area, { backgroundColor: '#0f172a', scale: 2, useCORS: true });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = canvas.height * (imgWidth / canvas.width);
+
+    let heightLeft = imgHeight;
+    let position = 0;
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+    }
+    pdf.save('bess_optimization_report.pdf');
+  } catch (err) {
+    alert('PDF generation failed: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = orig;
+  }
+}
+</script>
+
+</body>
+</html>

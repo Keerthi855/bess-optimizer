@@ -6,7 +6,9 @@ profile, PV generation profile and export price series, it determines the batter
 energy capacity (kWh) and power rating (kW) that minimise total annual cost — and
 decides whether installing a battery is worthwhile at all.
 
-Built with Pyomo and solved with HiGHS, Gurobi, CBC or GLPK, whichever is available.
+Built with Pyomo and solved with Gurobi, HiGHS, CBC or GLPK, whichever is available.
+Published results were produced with Gurobi; HiGHS provides an open-source path that
+requires no licence.
 
 ---
 
@@ -205,7 +207,8 @@ constants, which keeps the LP relaxation tight and the branch-and-bound tree sma
 ### Requirements
 
 - Python 3.9 or newer
-- A MILP solver (HiGHS is installed automatically via pip — see below)
+- A MILP solver. HiGHS installs automatically via pip and needs no licence. Gurobi is
+  used in preference if present — see [Solver selection](#solver-selection).
 
 ### Steps
 
@@ -238,15 +241,29 @@ At solve time the app tries solvers in this order and uses the first one availab
 
 | Order | Solver | How to get it |
 | --- | --- | --- |
-| 1 | Gurobi | Commercial; free academic licence. Used automatically if installed. |
+| 1 | Gurobi | Commercial; free academic licence. Used automatically if installed and licensed. |
 | 2 | HiGHS (`appsi_highs`) | `pip install highspy` — included in requirements.txt |
 | 3 | HiGHS (`highs`) | Same package, older Pyomo interface |
 | 4 | CBC | Separate binary; awkward on Windows |
 | 5 | GLPK | Separate binary |
 
-No configuration needed — HiGHS arrives with `pip install -r requirements.txt` and is
-open-source, fast and entirely sufficient for this model. The solver actually used is
-reported back in the JSON response under the `solver` key.
+**Results published from this repository were produced with Gurobi**, under an
+academic licence. Gurobi sits first in the chain, so on a machine where it is
+installed it is selected automatically and silently.
+
+No licence is required to run the model. HiGHS arrives with
+`pip install -r requirements.txt`, is open-source, and is entirely sufficient for a
+problem of this size — the two solvers converge to solutions agreeing within the
+specified MIP gap. If Gurobi is absent, the app falls through to HiGHS with no
+change to inputs, configuration or interface.
+
+Because selection is automatic, the solver actually used is reported back in the
+JSON response under the `solver` key. Check it before quoting any figure. To confirm
+what is available on your machine:
+
+```bash
+python -c "import pyomo.environ as pyo; print('gurobi:', pyo.SolverFactory('gurobi').available(exception_flag=False)); print('highs:', pyo.SolverFactory('appsi_highs').available(exception_flag=False))"
+```
 
 ---
 
